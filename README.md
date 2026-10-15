@@ -10,7 +10,7 @@ No account, no sign-up, no adverts. Everything you enter stays on your phone, an
 - **Your week at a glance.** See each day's hours and the week's total. Add or fix entries by hand, or clear the week and start fresh.
 - **Pay.** Add your hourly rate and travel rate in Settings. On site → Off site is paid at the hourly rate; Start → On site and Off site → Finish at the travel rate. A day with no on-site times is paid at the hourly rate. Pay shows on the Week page, the PDF and the spreadsheet.
 - **Sign and date.** Draw your signature once in Settings. It goes at the bottom of your PDFs with the date you choose.
-- **Timesheet PDF.** One tap makes a weekly timesheet with your company logo, name, address and contact details, ready to email or print. (On Android phones there's no preview: use Share or Download.) There's also a spreadsheet (CSV) download.
+- **Timesheet PDF.** One tap makes a weekly timesheet with your company logo, name, address and contact details, ready to email or print. There's also a spreadsheet (CSV) download.
 - **Expenses.** Add parking, fuel, materials, overnight stays, mileage (worked out at your rate per mile) and more. Snap a photo of the receipt. Make a monthly expense claim PDF with a page for each receipt.
 - **Weather.** Today's forecast on the main screen, with a heads-up for rain, ice or wind.
 - **Themes.** Forest, Paper, Midnight, Sand and Slate.
@@ -45,7 +45,7 @@ Anyone can host their own copy for free on GitHub:
 
 ## For developers
 
-Plain HTML, CSS and JavaScript with no build step. PDFs are made in the browser with [pdf-lib](https://pdf-lib.js.org) (MIT licence, in `vendor/`).
+Plain HTML, CSS and JavaScript with no build step. PDFs are made in the browser with [pdf-lib](https://pdf-lib.js.org) (MIT licence, in `vendor/`) and previewed with Mozilla's [pdf.js](https://mozilla.github.io/pdf.js/) 3.11.174 (Apache 2.0 licence, in `vendor/pdfjs/`), because Chrome on Android can't show a PDF inside a page.
 
 | File | What's in it |
 | --- | --- |

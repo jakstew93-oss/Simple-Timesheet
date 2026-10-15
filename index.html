@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Timesheet">
-  <link rel="stylesheet" href="app.css?v=2">
+  <link rel="stylesheet" href="app.css?v=3">
 </head>
 <body>
   <header class="app-header">
@@ -223,22 +223,22 @@
   <!-- PDF preview -->
   <dialog id="pdf-dialog" class="pdf-dialog" aria-labelledby="pdf-title">
     <div class="pdf-head"><h2 id="pdf-title">PDF</h2><button type="button" class="btn ghost" data-close>Close</button></div>
-    <iframe id="pdf-frame" title="PDF preview"></iframe>
+    <div id="pdf-pages" class="pdf-pages" role="document" aria-label="PDF preview"></div>
     <div id="pdf-ready" class="pdf-ready" hidden>
       <p class="pdf-ready-icon" aria-hidden="true">📄</p>
       <p><strong>Your PDF is ready.</strong></p>
       <p class="small" id="pdf-name"></p>
-      <p class="small">Your phone can’t show a preview here. Tap <strong>Share</strong> to send it by email or WhatsApp, or <strong>Download</strong> to save it and open it from your notifications or Files.</p>
+      <p class="small">The preview couldn’t load. Tap <strong>Share</strong> to send it by email or WhatsApp, or <strong>Download</strong> to save it.</p>
     </div>
     <div class="row"><a id="pdf-download" class="btn primary" download>Download</a><button type="button" id="pdf-share" class="btn">Share</button></div>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="core.js?v=2"></script>
-  <script src="pdf.js?v=2"></script>
-  <script src="store.js?v=2"></script>
-  <script src="weather.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="core.js?v=3"></script>
+  <script src="pdf.js?v=3"></script>
+  <script src="store.js?v=3"></script>
+  <script src="weather.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

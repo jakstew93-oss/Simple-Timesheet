@@ -153,7 +153,9 @@ dialog::backdrop { background: rgb(0 0 0 / .5); }
 .pdf-ready[hidden] { display: none !important; }
 .pdf-ready-icon { font-size: 3rem; line-height: 1; }
 .sign-pad { display: block; width: 100%; aspect-ratio: 3 / 1; margin-top: 10px; background: #fff; border: 1px dashed var(--muted); border-radius: 10px; touch-action: none; cursor: crosshair; }
-#pdf-frame { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.pdf-pages { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.pdf-pages canvas { display: block; width: 100%; height: auto; background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgb(0 0 0 / .25); }
+.pdf-pages .empty { text-align: center; margin: auto; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0;

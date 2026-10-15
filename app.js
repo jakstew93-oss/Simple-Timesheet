@@ -212,16 +212,54 @@
     previewUrl = URL.createObjectURL(blob);
     const d = $('pdf-dialog');
     $('pdf-title').textContent = title;
-    // Chrome on Android (and some other phones) can't show a PDF inside the page: offer Share / Download instead.
-    const inline = navigator.pdfViewerEnabled === true && !/Android/i.test(navigator.userAgent);
-    $('pdf-frame').hidden = !inline; $('pdf-ready').hidden = inline;
-    $('pdf-frame').src = inline ? previewUrl : 'about:blank';
     $('pdf-name').textContent = name;
+    $('pdf-ready').hidden = true; $('pdf-pages').hidden = false;
     $('pdf-download').href = previewUrl; $('pdf-download').download = name;
     $('pdf-share').onclick = () => share(blob, name, title);
     d.showModal();
+    renderPages(blob);
   }
   closeOnButtons($('pdf-dialog'));
+
+  // Phones (Chrome on Android) can't show a PDF in the page, so draw each page as a picture with pdf.js.
+  let pdfJsLoading, previewRun = 0;
+  function loadPdfJs() {
+    pdfJsLoading = pdfJsLoading || new Promise((resolve, reject) => {
+      const s = el('script'); s.src = 'vendor/pdfjs/pdf.min.js';
+      s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.js'; resolve(window.pdfjsLib); };
+      s.onerror = () => { pdfJsLoading = null; reject(new Error('The preview couldn’t load.')); };
+      document.head.append(s);
+    });
+    return pdfJsLoading;
+  }
+  async function renderPages(blob) {
+    const run = ++previewRun, box = $('pdf-pages');
+    box.replaceChildren(el('p', 'empty', 'Loading preview…'));
+    try {
+      const pdfjsLib = await loadPdfJs();
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise;
+      if (run !== previewRun) return;
+      box.replaceChildren();
+      const cssWidth = box.clientWidth - 20 || 320;
+      for (let n = 1; n <= doc.numPages; n++) {
+        const page = await doc.getPage(n);
+        if (run !== previewRun) return;
+        const base = page.getViewport({ scale: 1 });
+        // Extra resolution so it stays sharp when you pinch to zoom.
+        const scale = Math.min(cssWidth * Math.min((window.devicePixelRatio || 1) * 1.5, 4), 3000) / base.width;
+        const viewport = page.getViewport({ scale });
+        const canvas = el('canvas'); canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
+        canvas.setAttribute('aria-label', `Page ${n} of ${doc.numPages}`);
+        box.append(canvas);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      }
+      doc.destroy();
+    } catch (e) {
+      console.error(e);
+      if (run === previewRun) { $('pdf-pages').hidden = true; $('pdf-ready').hidden = false; }
+    }
+  }
+  $('pdf-dialog').addEventListener('close', () => { previewRun++; $('pdf-pages').replaceChildren(); });
 
   // ---------- Entry editor ----------
   const entryDialog = $('entry-dialog'), entryForm = $('entry-form');
