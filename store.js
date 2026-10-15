@@ -20,6 +20,7 @@
       list.push(entry); list.sort(TS.byDateAndStart); writeJSON(KEYS.entries, list);
     },
     remove(id) { writeJSON(KEYS.entries, entries.all().filter(e => e.id !== id)); },
+    removeMany(ids) { const gone = new Set(ids); writeJSON(KEYS.entries, entries.all().filter(e => !gone.has(e.id))); },
     replaceAll(list) { writeJSON(KEYS.entries, list); },
   };
   const draft = {

@@ -85,3 +85,27 @@ test('expenses: mileage uses the rate, everything else the amount', () => {
   assert.equal(TS.expenseAmount({ type: 'parking', amount: '4.5' }, s), 4.5);
   assert.equal(TS.money(10.35, s), '£10.35');
 });
+
+test('pay: hourly rate for time on site, travel rate for the drive there and back', () => {
+  const s = TS.mergeSettings({ hourlyRate: 25, travelRate: 15 });
+  const day = { start: '07:00', onSite: '08:00', offSite: '15:30', finish: '16:30' };
+  assert.equal(TS.workMinutes(day), 450);
+  assert.equal(TS.travelMinutes(day), 120);
+  assert.equal(TS.entryPay(day, s), 217.5);
+  const noSite = { start: '07:00', finish: '15:00' };
+  assert.equal(TS.travelMinutes(noSite), 0, 'no on-site times: no travel');
+  assert.equal(TS.entryPay(noSite, s), 200, 'the whole day at the hourly rate');
+  assert.deepEqual(TS.payTotals([day, noSite], s), { work: 930, travel: 120, pay: 417.5 });
+  assert.equal(TS.hasRates(TS.mergeSettings({})), false);
+});
+
+test('the spreadsheet adds pay columns only when rates are set', () => {
+  const csv = TS.toCSV([{ date: '2026-10-15', start: '07:00', onSite: '08:00', offSite: '15:30', finish: '16:30' }], TS.mergeSettings({ hourlyRate: 25, travelRate: 15 }));
+  const lines = csv.split('\r\n');
+  assert.equal(lines[0], 'Date,Job / reference,Start,On site,Off site,Finish,Hours,Hours (decimal),On site hours,Travel hours,Pay,Notes');
+  assert.equal(lines[2], 'Total,,,,,,9h 30m,9.50,7.50,2.00,217.50,');
+});
+
+test('overnight is an expense type', () => {
+  assert.ok(TS.EXPENSE_TYPES.some(t => t.key === 'overnight' && t.label === 'Overnight'));
+});

@@ -157,6 +157,12 @@
     $('week-title').textContent = TS.formatDate(weekEnd, 'long');
     $('week-total').textContent = TS.formatMinutes(TS.totalMinutes(list));
     $('week-days').textContent = String(new Set(list.map(e => e.date)).size);
+    const pay = TS.hasRates(settings), sums = TS.payTotals(list, settings);
+    $('week-pay-box').hidden = !pay;
+    if (pay) {
+      $('week-pay').textContent = TS.money(sums.pay, settings);
+      $('week-pay-detail').textContent = `On site ${TS.formatMinutes(sums.work)} · travel ${TS.formatMinutes(sums.travel)}`;
+    }
     const box = $('week-list'); box.replaceChildren();
     TS.weekDays(weekEnd).forEach(day => {
       const dayEntries = list.filter(e => e.date === day);
@@ -174,14 +180,24 @@
   function weekFileName(ext) { return safeName(`Timesheet ${settings.employee.name || ''} w-e ${TS.formatDate(weekEnd).replace(/\//g, '-')}`).replace(/\s+/g, ' ') + '.' + ext; }
   async function weekPdf() {
     const PDFLib = await loadPdfLib();
-    const bytes = await TSPdf.timesheetPdf(PDFLib, { entries: Store.entries.all(), settings: pdfSettings(), ending: weekEnd });
+    const bytes = await TSPdf.timesheetPdf(PDFLib, { entries: Store.entries.all(), settings: pdfSettings(), ending: weekEnd, signedDate: $('week-sign-date').value });
     return new Blob([bytes], { type: 'application/pdf' });
   }
   $('week-pdf').addEventListener('click', () => withBusy($('week-pdf'), async () => previewPdf(await weekPdf(), weekFileName('pdf'), 'Timesheet')));
   $('week-share').addEventListener('click', () => withBusy($('week-share'), async () => share(await weekPdf(), weekFileName('pdf'), 'Timesheet')));
   $('week-csv').addEventListener('click', () => {
     const csv = TS.toCSV(TS.entriesForWeek(Store.entries.all(), weekEnd), settings);
-    download(new Blob(['﻿' + csv], { type: 'text/csv' }), weekFileName('csv'));
+    // No byte-order mark: phone viewers and Google Sheets show it as junk in the top-left cell.
+    download(new Blob([csv], { type: 'text/csv' }), weekFileName('csv'));
+  });
+  $('week-clear').addEventListener('click', () => {
+    const list = TS.entriesForWeek(Store.entries.all(), weekEnd);
+    const d = Store.draft.get(), draftInWeek = TS.weekDays(weekEnd).includes(d.date) && TS.STAGES.some(st => d[st.key]);
+    if (!list.length && !draftInWeek) { toast('There’s nothing to clear this week.'); return; }
+    if (!confirm(`Delete all ${list.length} ${list.length === 1 ? 'entry' : 'entries'} for the week ending ${TS.formatDate(weekEnd)}${draftInWeek ? ', and today’s unsaved log' : ''}?\n\nThis can’t be undone. Make the PDF first if you need a copy.`)) return;
+    Store.entries.removeMany(list.map(e => e.id));
+    if (draftInWeek) Store.draft.clear();
+    refreshAll(); toast('Week cleared');
   });
   async function withBusy(button, work) {
     const label = button.textContent; button.disabled = true; button.textContent = 'Making PDF…';
@@ -196,7 +212,11 @@
     previewUrl = URL.createObjectURL(blob);
     const d = $('pdf-dialog');
     $('pdf-title').textContent = title;
-    $('pdf-frame').src = previewUrl;
+    // Chrome on Android (and some other phones) can't show a PDF inside the page: offer Share / Download instead.
+    const inline = navigator.pdfViewerEnabled === true && !/Android/i.test(navigator.userAgent);
+    $('pdf-frame').hidden = !inline; $('pdf-ready').hidden = inline;
+    $('pdf-frame').src = inline ? previewUrl : 'about:blank';
+    $('pdf-name').textContent = name;
     $('pdf-download').href = previewUrl; $('pdf-download').download = name;
     $('pdf-share').onclick = () => share(blob, name, title);
     d.showModal();
@@ -306,7 +326,7 @@
     const items = await monthItems();
     if (!items.length) throw new Error('There are no expenses this month to put in a claim.');
     const PDFLib = await loadPdfLib();
-    const bytes = await TSPdf.expensesPdf(PDFLib, { items, settings: pdfSettings(), title: monthLabel(month) });
+    const bytes = await TSPdf.expensesPdf(PDFLib, { items, settings: pdfSettings(), title: monthLabel(month), signedDate: $('expense-sign-date').value });
     return new Blob([bytes], { type: 'application/pdf' });
   }
   const expenseName = () => safeName(`Expenses ${settings.employee.name || ''} ${monthLabel(month)}`).replace(/\s+/g, ' ') + '.pdf';
@@ -323,6 +343,9 @@
     form.elements.weekEnds.value = String(settings.weekEnds);
     form.elements.currency.value = settings.currency;
     form.elements.mileageRate.value = settings.mileageRate;
+    form.elements.hourlyRate.value = settings.hourlyRate;
+    form.elements.travelRate.value = settings.travelRate;
+    drawSavedSignature();
     form.elements.theme.value = settings.theme;
     form.elements.weather.checked = settings.weather;
     const logo = $('logo-preview'); logo.hidden = !settings.company.logo; if (settings.company.logo) logo.src = settings.company.logo;
@@ -341,6 +364,8 @@
       weekEnds: Number(f.weekEnds.value),
       currency: f.currency.value.trim() || '£',
       mileageRate: Math.max(0, Number(f.mileageRate.value) || 0),
+      hourlyRate: Math.max(0, Number(f.hourlyRate.value) || 0),
+      travelRate: Math.max(0, Number(f.travelRate.value) || 0),
       theme: f.theme.value,
       weather: f.weather.checked,
     });
@@ -364,6 +389,38 @@
     } catch (err) { toast(err.message); }
   });
   $('logo-remove').addEventListener('click', () => { settings.company.logo = ''; Store.settings.set(settings); fillSettings(); applySettings(); });
+
+  // Signature pad: drawn with a finger, saved as a PNG in settings.
+  const pad = $('sign-pad'), pen = pad.getContext('2d');
+  let drawing = false, signed = false;
+  function drawSavedSignature() {
+    pen.clearRect(0, 0, pad.width, pad.height);
+    if (!settings.signature) return;
+    const img = new Image(); img.onload = () => pen.drawImage(img, 0, 0, pad.width, pad.height); img.src = settings.signature;
+  }
+  function padPoint(e) { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) * pad.width / r.width, (e.clientY - r.top) * pad.height / r.height]; }
+  pad.addEventListener('pointerdown', e => {
+    drawing = true; signed = false; pad.setPointerCapture(e.pointerId);
+    pen.lineWidth = 3.5; pen.lineCap = pen.lineJoin = 'round'; pen.strokeStyle = '#0b1f4d';
+    pen.beginPath(); pen.moveTo(...padPoint(e));
+  });
+  pad.addEventListener('pointermove', e => { if (!drawing) return; pen.lineTo(...padPoint(e)); pen.stroke(); signed = true; });
+  function endStroke() {
+    if (!drawing) return; drawing = false;
+    if (!signed) return;
+    settings = TS.mergeSettings({ ...settings, signature: pad.toDataURL('image/png') });
+    Store.settings.set(settings); renderSignNotes();
+  }
+  pad.addEventListener('pointerup', endStroke); pad.addEventListener('pointercancel', endStroke);
+  $('sign-clear').addEventListener('click', () => {
+    settings = TS.mergeSettings({ ...settings, signature: '' });
+    Store.settings.set(settings); drawSavedSignature(); renderSignNotes(); toast('Signature cleared');
+  });
+  function renderSignNotes() {
+    document.querySelectorAll('.sign-note').forEach(n => {
+      n.textContent = settings.signature ? 'Your signature will be added at the bottom.' : 'No signature yet. Draw one in Settings to sign your PDFs.';
+    });
+  }
 
   // A team setup link fills in the company details for whoever opens it.
   $('setup-share').addEventListener('click', async () => {
@@ -412,12 +469,14 @@
 
   // ---------- Start up ----------
   function refreshAll() { renderToday(); if (!$('view-week').hidden) renderWeek(); }
-  fillSettings(); applySettings(); renderToday();
+  $('week-sign-date').value = $('expense-sign-date').value = today();
+  fillSettings(); applySettings(); renderSignNotes(); renderToday();
   let first = 'today';
   try { first = localStorage.getItem(Store.KEYS.view) || 'today'; } catch (_) {}
   if (!settings.company.name && !settings.employee.name) first = 'settings';
   showView(first);
   acceptSetupLink();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); renderToday(); Weather.refresh(); } });
+  setTimeout(() => loadPdfLib().catch(() => {}), 1500); // ready before the first tap, so Share still counts as a tap
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

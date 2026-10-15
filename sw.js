@@ -1,7 +1,7 @@
 // Keeps the app working with no signal. Bump VERSION whenever a file changes so phones fetch the new copy.
-const VERSION = 'simple-timesheet-v1';
+const VERSION = 'simple-timesheet-v2';
 const FILES = [
-  './', './index.html', './app.css?v=1', './core.js?v=1', './pdf.js?v=1', './store.js?v=1', './weather.js?v=1', './app.js?v=1',
+  './', './index.html', './app.css?v=2', './core.js?v=2', './pdf.js?v=2', './store.js?v=2', './weather.js?v=2', './app.js?v=2',
   './vendor/pdf-lib.min.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));

@@ -96,42 +96,59 @@
     page.drawText('Made with Simple Timesheet', { x: 36, y: 20, size: 8, font: ctx.font, color: rgb(...MUTED) });
   }
 
+  /** Name, signature and date boxes. The saved signature and the chosen date are filled in when there are any. */
   function drawSignatures(page, ctx, y, left) {
-    const { rgb } = ctx.PDFLib, { width } = page.getSize();
+    const { rgb } = ctx.PDFLib, { width } = page.getSize(), boxW = (width - 72) / 3 - 18;
     const boxes = [[left, 36], ['Signed', 36 + (width - 72) / 3], ['Date', 36 + (width - 72) * 2 / 3]];
     boxes.forEach(([label, x]) => {
-      page.drawText(clean(label), { x, y, size: 9, font: ctx.font, color: rgb(...MUTED) });
-      page.drawLine({ start: { x, y: y - 24 }, end: { x: x + (width - 72) / 3 - 18, y: y - 24 }, thickness: 0.75, color: rgb(...INK) });
+      page.drawText(fit(label, ctx.font, 9, boxW), { x, y, size: 9, font: ctx.font, color: rgb(...MUTED) });
+      page.drawLine({ start: { x, y: y - 24 }, end: { x: x + boxW, y: y - 24 }, thickness: 0.75, color: rgb(...INK) });
     });
+    const [, signX] = boxes[1], [, dateX] = boxes[2];
+    if (ctx.signature) {
+      const room = boxW - 42, scale = Math.min(room / ctx.signature.width, 34 / ctx.signature.height);
+      page.drawImage(ctx.signature, { x: signX + 42, y: y - 23, width: ctx.signature.width * scale, height: ctx.signature.height * scale });
+    }
+    if (ctx.signedDate) page.drawText(TS.formatDate(ctx.signedDate), { x: dateX + 32, y: y - 19, size: 11, font: ctx.font, color: rgb(...INK) });
   }
 
-  async function context(PDFLib, settings, doc) {
+  async function context(PDFLib, settings, doc, signedDate) {
     const accent = (settings.accentRgb || [0.12, 0.47, 0.33]);
     return {
       PDFLib, settings, accent,
+      signature: await embedImage(doc, settings.signature),
+      signedDate: /^\d{4}-\d{2}-\d{2}$/.test(signedDate || '') ? signedDate : '',
       font: await doc.embedFont(PDFLib.StandardFonts.Helvetica),
       bold: await doc.embedFont(PDFLib.StandardFonts.HelveticaBold),
       logo: await embedImage(doc, settings.company.logo),
     };
   }
 
-  /** One week's timesheet, landscape, as many pages as it needs. */
-  async function timesheetPdf(PDFLib, { entries, settings, ending }) {
+  /** One week's timesheet, landscape, as many pages as it needs. With rates set, adds on-site, travel and pay. */
+  async function timesheetPdf(PDFLib, { entries, settings, ending, signedDate }) {
     const doc = await PDFLib.PDFDocument.create();
     doc.setTitle(`Timesheet - week ending ${TS.formatDate(ending)}`);
     doc.setAuthor(clean(settings.employee.name || settings.company.name || ''));
-    const ctx = await context(PDFLib, settings, doc);
+    const ctx = await context(PDFLib, settings, doc, signedDate);
     const list = TS.entriesForWeek(entries, ending);
-    const columns = [
+    const pay = TS.hasRates(settings);
+    const columns = pay ? [
+      { label: 'Date', width: 80 }, { label: settings.jobLabel || 'Job', width: 120 },
+      { label: 'Start', width: 44 }, { label: 'On site', width: 46 }, { label: 'Off site', width: 46 }, { label: 'Finish', width: 44 },
+      { label: 'Hours', width: 50, align: 'right' }, { label: 'Site hrs', width: 52, align: 'right' },
+      { label: 'Travel hrs', width: 58, align: 'right' }, { label: 'Pay', width: 62, align: 'right' }, { label: 'Notes', width: 169.89 },
+    ] : [
       { label: 'Date', width: 92 }, { label: settings.jobLabel || 'Job', width: 150 },
       { label: 'Start', width: 52 }, { label: 'On site', width: 52 }, { label: 'Off site', width: 52 }, { label: 'Finish', width: 52 },
       { label: 'Hours', width: 58, align: 'right' }, { label: 'Notes', width: 261.89 },
     ];
-    const rows = list.map(e => ({ cells: [TS.formatDate(e.date, 'day'), e.job, e.start, e.onSite, e.offSite, e.finish, TS.formatMinutes(TS.entryMinutes(e)), e.notes] }));
-    if (!rows.length) rows.push({ cells: ['No entries this week', '', '', '', '', '', '', ''] });
-    const total = TS.totalMinutes(list);
-    rows.push({ bold: true, cells: ['Total', '', '', '', '', '', TS.formatMinutes(total), TS.decimalHours(total) + ' hours'] });
-    const perPage = 18, pages = [];
+    const payCells = e => pay ? [TS.formatMinutes(TS.workMinutes(e)), TS.formatMinutes(TS.travelMinutes(e)), TS.money(TS.entryPay(e, settings), settings)] : [];
+    const rows = list.map(e => ({ cells: [TS.formatDate(e.date, 'day'), e.job, e.start, e.onSite, e.offSite, e.finish, TS.formatMinutes(TS.entryMinutes(e)), ...payCells(e), e.notes] }));
+    if (!rows.length) rows.push({ cells: columns.map((_, i) => i ? '' : 'No entries this week') });
+    const total = TS.totalMinutes(list), sums = TS.payTotals(list, settings);
+    rows.push({ bold: true, cells: ['Total', '', '', '', '', '', TS.formatMinutes(total),
+      ...(pay ? [TS.formatMinutes(sums.work), TS.formatMinutes(sums.travel), TS.money(sums.pay, settings)] : []), TS.decimalHours(total) + ' hours'] });
+    const perPage = pay ? 16 : 18, pages = [];
     for (let i = 0; i < rows.length; i += perPage) pages.push(rows.slice(i, i + perPage));
     pages.forEach((chunk, i) => {
       const page = doc.addPage([A4[1], A4[0]]);
@@ -140,17 +157,24 @@
         'Week ending: ' + TS.formatDate(ending, 'long'),
       ].filter(Boolean));
       y = drawTable(page, ctx, y, columns, chunk);
-      if (i === pages.length - 1) drawSignatures(page, ctx, Math.min(y - 24, 110), 'Employee: ' + (settings.employee.name || ''));
+      if (i !== pages.length - 1) { drawFooter(page, ctx, i + 1, pages.length); return; }
+      if (pay) {
+        const rate = (label, mins, r) => `${label}: ${TS.decimalHours(mins)} hours at ${TS.money(r, settings)} an hour`;
+        const line = [rate('On site', sums.work, settings.hourlyRate), rate('Travel', sums.travel, settings.travelRate), 'Total pay: ' + TS.money(sums.pay, settings)].join('      ');
+        page.drawText(fit(line, ctx.bold, 9.5, page.getWidth() - 72), { x: 36, y: y - 12, size: 9.5, font: ctx.bold, color: PDFLib.rgb(...INK) });
+        y -= 18;
+      }
+      drawSignatures(page, ctx, Math.min(y - 24, 110), 'Employee: ' + (settings.employee.name || ''));
       drawFooter(page, ctx, i + 1, pages.length);
     });
     return doc.save();
   }
 
   /** An expense claim: a summary table, then one page per receipt photo. */
-  async function expensesPdf(PDFLib, { items, settings, title }) {
+  async function expensesPdf(PDFLib, { items, settings, title, signedDate }) {
     const doc = await PDFLib.PDFDocument.create();
     doc.setTitle('Expense claim - ' + clean(title));
-    const ctx = await context(PDFLib, settings, doc);
+    const ctx = await context(PDFLib, settings, doc, signedDate);
     const type = k => (TS.EXPENSE_TYPES.find(t => t.key === k) || { label: k }).label;
     const sorted = items.slice().sort((a, b) => a.date.localeCompare(b.date));
     const columns = [

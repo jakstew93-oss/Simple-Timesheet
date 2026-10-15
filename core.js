@@ -17,6 +17,9 @@
     weekEnds: 0, // 0 = Sunday ... 6 = Saturday
     currency: '£',
     mileageRate: 0.45,
+    hourlyRate: 0, // paid for time on site
+    travelRate: 0, // paid for Start → On site and Off site → Finish
+    signature: '', // PNG drawn in Settings; goes on the PDFs when set
     theme: 'forest',
     weather: true,
   };
@@ -40,6 +43,14 @@
   function entryMinutes(entry) { return span(entry.start, entry.finish); }
   /** Time actually on site, when both on-site times are filled in. */
   function siteMinutes(entry) { return span(entry.onSite, entry.offSite); }
+  function hasSiteTimes(entry) { return isTime(entry.onSite) && isTime(entry.offSite); }
+  /** Time paid at the hourly rate: on site, or the whole day when no on-site times were logged. */
+  function workMinutes(entry) { return hasSiteTimes(entry) ? siteMinutes(entry) : entryMinutes(entry); }
+  /** Time paid at the travel rate: Start to On site, plus Off site to Finish. */
+  function travelMinutes(entry) {
+    if (!hasSiteTimes(entry) || !isTime(entry.start) || !isTime(entry.finish)) return 0;
+    return span(entry.start, entry.onSite) + span(entry.offSite, entry.finish);
+  }
 
   function formatMinutes(mins) {
     if (!mins) return '0h';
@@ -68,6 +79,17 @@
   }
   function byDateAndStart(a, b) { return a.date.localeCompare(b.date) || (a.start || '').localeCompare(b.start || ''); }
   function totalMinutes(entries) { return entries.reduce((sum, e) => sum + entryMinutes(e), 0); }
+  function hasRates(settings) { return Number(settings.hourlyRate) > 0 || Number(settings.travelRate) > 0; }
+  const round2 = n => Math.round(n * 100) / 100;
+  function entryPay(entry, settings) {
+    return round2(workMinutes(entry) / 60 * (Number(settings.hourlyRate) || 0) + travelMinutes(entry) / 60 * (Number(settings.travelRate) || 0));
+  }
+  /** Week totals: minutes at each rate and the pay (sum of each entry's rounded pay, so it matches the rows). */
+  function payTotals(entries, settings) {
+    return entries.reduce((t, e) => ({
+      work: t.work + workMinutes(e), travel: t.travel + travelMinutes(e), pay: round2(t.pay + entryPay(e, settings)),
+    }), { work: 0, travel: 0, pay: 0 });
+  }
   /** Which stage the next tap of the Quick Start button fills in. */
   function nextStage(draft) { const i = STAGES.findIndex(s => !isTime(draft[s.key])); return i === -1 ? null : i; }
 
@@ -88,13 +110,16 @@
     return /[",\n\r]/.test(s) || /^[=+\-@]/.test(s) ? '"' + (/^[=+\-@]/.test(s) ? "'" : '') + s.replace(/"/g, '""') + '"' : s;
   }
   function toCSV(entries, settings) {
-    const rows = [['Date', settings.jobLabel || 'Job', 'Start', 'On site', 'Off site', 'Finish', 'Hours', 'Hours (decimal)', 'Notes']];
+    const pay = hasRates(settings);
+    const extra = (e, t) => pay ? [decimalHours(t ? t.work : workMinutes(e)), decimalHours(t ? t.travel : travelMinutes(e)), (t ? t.pay : entryPay(e, settings)).toFixed(2)] : [];
+    const rows = [['Date', settings.jobLabel || 'Job', 'Start', 'On site', 'Off site', 'Finish', 'Hours', 'Hours (decimal)',
+      ...(pay ? ['On site hours', 'Travel hours', 'Pay'] : []), 'Notes']];
     entries.slice().sort(byDateAndStart).forEach(e => {
       const mins = entryMinutes(e);
-      rows.push([formatDate(e.date), e.job, e.start, e.onSite, e.offSite, e.finish, formatMinutes(mins), decimalHours(mins), e.notes]);
+      rows.push([formatDate(e.date), e.job, e.start, e.onSite, e.offSite, e.finish, formatMinutes(mins), decimalHours(mins), ...extra(e), e.notes]);
     });
     const total = totalMinutes(entries);
-    rows.push(['Total', '', '', '', '', '', formatMinutes(total), decimalHours(total), '']);
+    rows.push(['Total', '', '', '', '', '', formatMinutes(total), decimalHours(total), ...extra(null, payTotals(entries, settings)), '']);
     return rows.map(r => r.map(csvCell).join(',')).join('\r\n');
   }
 
@@ -150,6 +175,7 @@
     { key: 'tools', label: 'Tools' },
     { key: 'food', label: 'Food' },
     { key: 'travel', label: 'Travel' },
+    { key: 'overnight', label: 'Overnight' },
     { key: 'other', label: 'Other' },
   ];
   function expenseAmount(item, settings) {
@@ -161,6 +187,7 @@
   const api = {
     STAGES, WEEKDAYS, DEFAULT_SETTINGS, EXPENSE_TYPES,
     isTime, toMinutes, nowHM, isoDate, parseDate, addDays, span, entryMinutes, siteMinutes, formatMinutes, decimalHours,
+    hasSiteTimes, workMinutes, travelMinutes, hasRates, entryPay, payTotals,
     weekEnding, weekDays, formatDate, entriesForWeek, byDateAndStart, totalMinutes, nextStage, validate,
     toCSV, mergeSettings, setupCode, readSetupCode, applySetup, expenseAmount, money,
   };

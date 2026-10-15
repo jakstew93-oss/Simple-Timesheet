@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Timesheet">
-  <link rel="stylesheet" href="app.css?v=1">
+  <link rel="stylesheet" href="app.css?v=2">
 </head>
 <body>
   <header class="app-header">
@@ -61,16 +61,20 @@
         <div class="totals">
           <div><p class="small">Total</p><p class="big" id="week-total">0h</p></div>
           <div><p class="small">Days worked</p><p class="big" id="week-days">0</p></div>
+          <div class="wide" id="week-pay-box" hidden><p class="small">Pay</p><p class="big" id="week-pay">£0.00</p><p class="small" id="week-pay-detail"></p></div>
         </div>
       </div>
       <div id="week-list"></div>
       <div class="card">
         <button type="button" id="week-add" class="btn ghost wide">Add an entry by hand</button>
+        <label class="field"><span>Date at the bottom of the PDF</span><input type="date" id="week-sign-date"></label>
+        <p class="small sign-note"></p>
         <div class="row">
           <button type="button" id="week-pdf" class="btn primary">Timesheet PDF</button>
           <button type="button" id="week-share" class="btn">Share PDF</button>
         </div>
         <button type="button" id="week-csv" class="btn ghost wide">Download spreadsheet (CSV)</button>
+        <button type="button" id="week-clear" class="btn danger wide">Clear this week and start fresh</button>
       </div>
     </section>
 
@@ -87,6 +91,8 @@
       <div class="card">
         <ul class="entries" id="expense-list"></ul>
         <button type="button" id="expense-add" class="btn primary wide">Add an expense</button>
+        <label class="field"><span>Date at the bottom of the PDF</span><input type="date" id="expense-sign-date"></label>
+        <p class="small sign-note"></p>
         <div class="row">
           <button type="button" id="expense-pdf" class="btn">Expense claim PDF</button>
           <button type="button" id="expense-share" class="btn">Share PDF</button>
@@ -119,6 +125,16 @@
         <h2>Timesheet</h2>
         <label class="field"><span>Name for the job column</span><input name="jobLabel" maxlength="40" placeholder="Job / reference"></label>
         <label class="field"><span>Week ends on</span><select name="weekEnds"></select></label>
+        <h2>Pay rates</h2>
+        <p class="small">Leave at 0 to keep pay off your timesheet. Hourly rate is for time on site (On site → Off site). Travel rate is for Start → On site and Off site → Finish. A day with no on-site times is paid at the hourly rate.</p>
+        <div class="row">
+          <label class="field"><span>Hourly rate</span><input name="hourlyRate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="field"><span>Travel rate (per hour)</span><input name="travelRate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        </div>
+        <h2>Signature</h2>
+        <p class="small">Sign with your finger. It goes in the “Signed” box at the bottom of your timesheet and expense PDFs. Clear it to leave the box blank.</p>
+        <canvas id="sign-pad" class="sign-pad" width="600" height="200" aria-label="Signature pad: draw your signature"></canvas>
+        <div class="row"><button type="button" id="sign-clear" class="btn ghost">Clear signature</button></div>
         <h2>Expenses</h2>
         <div class="row">
           <label class="field"><span>Currency</span><input name="currency" maxlength="3"></label>
@@ -208,15 +224,21 @@
   <dialog id="pdf-dialog" class="pdf-dialog" aria-labelledby="pdf-title">
     <div class="pdf-head"><h2 id="pdf-title">PDF</h2><button type="button" class="btn ghost" data-close>Close</button></div>
     <iframe id="pdf-frame" title="PDF preview"></iframe>
+    <div id="pdf-ready" class="pdf-ready" hidden>
+      <p class="pdf-ready-icon" aria-hidden="true">📄</p>
+      <p><strong>Your PDF is ready.</strong></p>
+      <p class="small" id="pdf-name"></p>
+      <p class="small">Your phone can’t show a preview here. Tap <strong>Share</strong> to send it by email or WhatsApp, or <strong>Download</strong> to save it and open it from your notifications or Files.</p>
+    </div>
     <div class="row"><a id="pdf-download" class="btn primary" download>Download</a><button type="button" id="pdf-share" class="btn">Share</button></div>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="core.js?v=1"></script>
-  <script src="pdf.js?v=1"></script>
-  <script src="store.js?v=1"></script>
-  <script src="weather.js?v=1"></script>
-  <script src="app.js?v=1"></script>
+  <script src="core.js?v=2"></script>
+  <script src="pdf.js?v=2"></script>
+  <script src="store.js?v=2"></script>
+  <script src="weather.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

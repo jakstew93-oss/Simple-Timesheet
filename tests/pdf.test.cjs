@@ -45,3 +45,12 @@ test('an expense claim adds a page for each receipt photo', async () => {
 test('text the PDF fonts can’t show is swapped rather than breaking the PDF', () => {
   assert.equal(TSPdf.clean('Fitted “new” board – done… 👍'), 'Fitted "new" board - done... ?');
 });
+
+test('a timesheet with pay rates, a signature and a date still makes a PDF', async () => {
+  const signed = TS.mergeSettings({ ...settings, hourlyRate: 25, travelRate: 15, signature: LOGO });
+  const entries = Array.from({ length: 17 }, (_, i) => ({ id: String(i), date: '2026-10-1' + (2 + (i % 7)), job: 'Job ' + i, start: '07:00', onSite: '08:00', offSite: '15:00', finish: '16:00' }));
+  const doc = await PDFLib.PDFDocument.load(await TSPdf.timesheetPdf(PDFLib, { entries, settings: signed, ending: '2026-10-18', signedDate: '2026-10-18' }));
+  assert.equal(doc.getPageCount(), 2);
+  const claim = await PDFLib.PDFDocument.load(await TSPdf.expensesPdf(PDFLib, { items: [{ id: 'a', date: '2026-10-02', type: 'overnight', amount: 85 }], settings: signed, title: 'October 2026', signedDate: '2026-10-31' }));
+  assert.equal(claim.getPageCount(), 1);
+});
