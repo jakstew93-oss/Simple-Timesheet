@@ -109,3 +109,15 @@ test('the spreadsheet adds pay columns only when rates are set', () => {
 test('overnight is an expense type', () => {
   assert.ok(TS.EXPENSE_TYPES.some(t => t.key === 'overnight' && t.label === 'Overnight'));
 });
+
+test('monthly timesheets cover every day of the month', () => {
+  assert.equal(TS.monthDays('2026-02').length, 28);
+  assert.equal(TS.monthDays('2028-02').length, 29, 'leap year');
+  assert.deepEqual(TS.monthDays('2026-10').slice(-1), ['2026-10-31']);
+  assert.equal(TS.shiftMonth('2026-12', 1), '2027-01');
+  assert.equal(TS.monthLabel('2026-10'), 'October 2026');
+  const entries = [{ id: 'a', date: '2026-10-31', start: '07:00', finish: '08:00' }, { id: 'b', date: '2026-11-01', start: '07:00', finish: '08:00' }, { id: 'c', date: '2026-10-01', start: '07:00', finish: '08:00' }];
+  assert.deepEqual(TS.entriesForMonth(entries, '2026-10').map(e => e.id), ['c', 'a']);
+  assert.equal(TS.mergeSettings({}).period, 'week');
+  assert.equal(TS.readSetupCode(TS.setupCode(TS.mergeSettings({ period: 'month' }))).period, 'month');
+});

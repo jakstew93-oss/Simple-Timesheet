@@ -136,6 +136,7 @@ input[type="date"], input[type="time"] { min-width: 0; }
   color: var(--muted); font: inherit; font-size: .75rem; font-weight: 600; cursor: pointer;
 }
 .tabs button span { font-size: 1.25rem; line-height: 1; }
+.tabs button .tab-text { font-size: inherit; line-height: inherit; }
 .tabs button[aria-selected="true"] { color: var(--accent); }
 
 /* Dialogs */

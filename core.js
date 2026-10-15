@@ -15,6 +15,7 @@
     employee: { name: '' },
     jobLabel: 'Job / reference',
     weekEnds: 0, // 0 = Sunday ... 6 = Saturday
+    period: 'week', // timesheets by 'week' or 'month'
     currency: '£',
     mileageRate: 0.45,
     hourlyRate: 0, // paid for time on site
@@ -65,6 +66,13 @@
     return addDays(iso, (weekEnds - day + 7) % 7);
   }
   function weekDays(ending) { return Array.from({ length: 7 }, (_, i) => addDays(ending, i - 6)); }
+  /** Every day of a month given as YYYY-MM. */
+  function monthDays(ym) {
+    const [y, m] = ym.split('-').map(Number), count = new Date(y, m, 0).getDate();
+    return Array.from({ length: count }, (_, i) => ym + '-' + pad(i + 1));
+  }
+  function monthLabel(ym) { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
+  function shiftMonth(ym, by) { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + by, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
   function formatDate(iso, style = 'short') {
     const d = parseDate(iso);
     if (style === 'long') return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -73,10 +81,12 @@
   }
 
   // ---------- Entries ----------
-  function entriesForWeek(entries, ending) {
-    const days = new Set(weekDays(ending));
+  function entriesForDays(entries, dayList) {
+    const days = new Set(dayList);
     return entries.filter(e => days.has(e.date)).sort(byDateAndStart);
   }
+  function entriesForWeek(entries, ending) { return entriesForDays(entries, weekDays(ending)); }
+  function entriesForMonth(entries, ym) { return entries.filter(e => (e.date || '').startsWith(ym + '-')).sort(byDateAndStart); }
   function byDateAndStart(a, b) { return a.date.localeCompare(b.date) || (a.start || '').localeCompare(b.start || ''); }
   function totalMinutes(entries) { return entries.reduce((sum, e) => sum + entryMinutes(e), 0); }
   function hasRates(settings) { return Number(settings.hourlyRate) > 0 || Number(settings.travelRate) > 0; }
@@ -146,7 +156,7 @@
   function setupCode(settings) {
     const company = {};
     SETUP_FIELDS.forEach(k => { if (settings.company[k]) company[k] = settings.company[k]; });
-    return toBase64Url(JSON.stringify({ v: 1, company, jobLabel: settings.jobLabel, weekEnds: settings.weekEnds, currency: settings.currency, mileageRate: settings.mileageRate }));
+    return toBase64Url(JSON.stringify({ v: 1, company, jobLabel: settings.jobLabel, weekEnds: settings.weekEnds, period: settings.period, currency: settings.currency, mileageRate: settings.mileageRate }));
   }
   /** Reads a setup link's code. Throws with a plain reason if it isn't one. */
   function readSetupCode(code) {
@@ -158,6 +168,7 @@
     const out = { company };
     if (typeof data.jobLabel === 'string' && data.jobLabel.trim()) out.jobLabel = data.jobLabel.slice(0, 40);
     if (Number.isInteger(data.weekEnds) && data.weekEnds >= 0 && data.weekEnds <= 6) out.weekEnds = data.weekEnds;
+    if (data.period === 'week' || data.period === 'month') out.period = data.period;
     if (typeof data.currency === 'string' && data.currency.length <= 3) out.currency = data.currency;
     if (typeof data.mileageRate === 'number' && data.mileageRate >= 0 && data.mileageRate < 10) out.mileageRate = data.mileageRate;
     return out;
@@ -188,7 +199,7 @@
     STAGES, WEEKDAYS, DEFAULT_SETTINGS, EXPENSE_TYPES,
     isTime, toMinutes, nowHM, isoDate, parseDate, addDays, span, entryMinutes, siteMinutes, formatMinutes, decimalHours,
     hasSiteTimes, workMinutes, travelMinutes, hasRates, entryPay, payTotals,
-    weekEnding, weekDays, formatDate, entriesForWeek, byDateAndStart, totalMinutes, nextStage, validate,
+    weekEnding, weekDays, monthDays, monthLabel, shiftMonth, formatDate, entriesForDays, entriesForWeek, entriesForMonth, byDateAndStart, totalMinutes, nextStage, validate,
     toCSV, mergeSettings, setupCode, readSetupCode, applySetup, expenseAmount, money,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

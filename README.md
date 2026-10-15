@@ -7,6 +7,7 @@ No account, no sign-up, no adverts. Everything you enter stays on your phone, an
 ## What it does
 
 - **One-tap logging.** Tap the big button as you go: *Start → On site → Off site → Finish*. Each tap records the time. You can change any time by tapping it.
+- **Weekly or monthly.** Choose *Settings → Timesheets by: Week or Month*. On Month, the Week tab becomes a Month tab and the hours, pay, PDF, spreadsheet and *clear and start fresh* all cover the whole month.
 - **Your week at a glance.** See each day's hours and the week's total. Add or fix entries by hand, or clear the week and start fresh.
 - **Pay.** Add your hourly rate and travel rate in Settings. On site → Off site is paid at the hourly rate; Start → On site and Off site → Finish at the travel rate. A day with no on-site times is paid at the hourly rate. Pay shows on the Week page, the PDF and the spreadsheet.
 - **Sign and date.** Draw your signature once in Settings. It goes at the bottom of your PDFs with the date you choose.

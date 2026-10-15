@@ -10,6 +10,7 @@
 
   let settings = Store.settings.get();
   let weekEnd = TS.weekEnding(today(), settings.weekEnds);
+  let sheetMonth = today().slice(0, 7); // the month on the Week tab when timesheets are monthly
   let month = today().slice(0, 7);
 
   // ---------- Small helpers ----------
@@ -82,6 +83,7 @@
     const logo = $('header-logo'); logo.hidden = !c.logo; if (c.logo) logo.src = c.logo;
     document.querySelectorAll('.job-label').forEach(e => { e.textContent = settings.jobLabel || 'Job / reference'; });
     $('qs-job-label').textContent = settings.jobLabel || 'Job / reference';
+    applyPeriodLabels();
     Weather.init($('weather'), settings.weather);
   }
 
@@ -151,10 +153,29 @@
     });
   }
 
-  // ---------- Week ----------
+  // ---------- Week or month (Settings → Timesheets by) ----------
+  // The Week tab shows a week or a whole month, depending on the setting.
+  function period() {
+    if (settings.period === 'month') {
+      const label = TS.monthLabel(sheetMonth);
+      return { noun: 'month', days: TS.monthDays(sheetMonth), kicker: 'Hours for', title: label, name: label, file: label,
+        list: all => TS.entriesForMonth(all, sheetMonth), pdf: { month: sheetMonth } };
+    }
+    const ending = TS.formatDate(weekEnd);
+    return { noun: 'week', days: TS.weekDays(weekEnd), kicker: 'Week ending', title: TS.formatDate(weekEnd, 'long'), name: 'the week ending ' + ending,
+      file: 'w-e ' + ending.replace(/\//g, '-'), list: all => TS.entriesForWeek(all, weekEnd), pdf: { ending: weekEnd } };
+  }
+  function applyPeriodLabels() {
+    const noun = settings.period === 'month' ? 'month' : 'week', Noun = noun[0].toUpperCase() + noun.slice(1);
+    $('tab-week-label').textContent = Noun;
+    $('week-prev').setAttribute('aria-label', 'Previous ' + noun);
+    $('week-next').setAttribute('aria-label', 'Next ' + noun);
+    $('week-clear').textContent = `Clear this ${noun} and start fresh`;
+  }
   function renderWeek() {
-    const list = TS.entriesForWeek(Store.entries.all(), weekEnd);
-    $('week-title').textContent = TS.formatDate(weekEnd, 'long');
+    const p = period(), list = p.list(Store.entries.all());
+    $('week-kicker').textContent = p.kicker;
+    $('week-title').textContent = p.title;
     $('week-total').textContent = TS.formatMinutes(TS.totalMinutes(list));
     $('week-days').textContent = String(new Set(list.map(e => e.date)).size);
     const pay = TS.hasRates(settings), sums = TS.payTotals(list, settings);
@@ -164,7 +185,10 @@
       $('week-pay-detail').textContent = `On site ${TS.formatMinutes(sums.work)} · travel ${TS.formatMinutes(sums.travel)}`;
     }
     const box = $('week-list'); box.replaceChildren();
-    TS.weekDays(weekEnd).forEach(day => {
+    // A month shows only the days worked (and today), so the buttons aren't 31 cards down.
+    const days = p.noun === 'month' ? p.days.filter(day => day === today() || list.some(e => e.date === day)) : p.days;
+    if (!days.length) { const card = el('div', 'card'); card.append(el('p', 'empty', 'No entries this month yet.')); box.append(card); }
+    days.forEach(day => {
       const dayEntries = list.filter(e => e.date === day);
       const card = el('div', 'card day' + (day === today() ? ' is-today' : ''));
       const head = el('div', 'day-head');
@@ -174,30 +198,37 @@
       box.append(card);
     });
   }
-  $('week-prev').addEventListener('click', () => { weekEnd = TS.addDays(weekEnd, -7); renderWeek(); });
-  $('week-next').addEventListener('click', () => { weekEnd = TS.addDays(weekEnd, 7); renderWeek(); });
-  $('week-add').addEventListener('click', () => openEntry({ date: weekEnd > today() ? today() : weekEnd }));
-  function weekFileName(ext) { return safeName(`Timesheet ${settings.employee.name || ''} w-e ${TS.formatDate(weekEnd).replace(/\//g, '-')}`).replace(/\s+/g, ' ') + '.' + ext; }
+  function movePeriod(by) {
+    if (settings.period === 'month') sheetMonth = TS.shiftMonth(sheetMonth, by); else weekEnd = TS.addDays(weekEnd, 7 * by);
+    renderWeek();
+  }
+  $('week-prev').addEventListener('click', () => movePeriod(-1));
+  $('week-next').addEventListener('click', () => movePeriod(1));
+  $('week-add').addEventListener('click', () => {
+    const days = period().days, last = days[days.length - 1];
+    openEntry({ date: days.includes(today()) ? today() : last > today() ? days[0] : last });
+  });
+  function weekFileName(ext) { return safeName(`Timesheet ${settings.employee.name || ''} ${period().file}`).replace(/\s+/g, ' ') + '.' + ext; }
   async function weekPdf() {
     const PDFLib = await loadPdfLib();
-    const bytes = await TSPdf.timesheetPdf(PDFLib, { entries: Store.entries.all(), settings: pdfSettings(), ending: weekEnd, signedDate: $('week-sign-date').value });
+    const bytes = await TSPdf.timesheetPdf(PDFLib, { entries: Store.entries.all(), settings: pdfSettings(), ...period().pdf, signedDate: $('week-sign-date').value });
     return new Blob([bytes], { type: 'application/pdf' });
   }
   $('week-pdf').addEventListener('click', () => withBusy($('week-pdf'), async () => previewPdf(await weekPdf(), weekFileName('pdf'), 'Timesheet')));
   $('week-share').addEventListener('click', () => withBusy($('week-share'), async () => share(await weekPdf(), weekFileName('pdf'), 'Timesheet')));
   $('week-csv').addEventListener('click', () => {
-    const csv = TS.toCSV(TS.entriesForWeek(Store.entries.all(), weekEnd), settings);
+    const csv = TS.toCSV(period().list(Store.entries.all()), settings);
     // No byte-order mark: phone viewers and Google Sheets show it as junk in the top-left cell.
     download(new Blob([csv], { type: 'text/csv' }), weekFileName('csv'));
   });
   $('week-clear').addEventListener('click', () => {
-    const list = TS.entriesForWeek(Store.entries.all(), weekEnd);
-    const d = Store.draft.get(), draftInWeek = TS.weekDays(weekEnd).includes(d.date) && TS.STAGES.some(st => d[st.key]);
-    if (!list.length && !draftInWeek) { toast('There’s nothing to clear this week.'); return; }
-    if (!confirm(`Delete all ${list.length} ${list.length === 1 ? 'entry' : 'entries'} for the week ending ${TS.formatDate(weekEnd)}${draftInWeek ? ', and today’s unsaved log' : ''}?\n\nThis can’t be undone. Make the PDF first if you need a copy.`)) return;
+    const p = period(), list = p.list(Store.entries.all());
+    const d = Store.draft.get(), draftIn = p.days.includes(d.date) && TS.STAGES.some(st => d[st.key]);
+    if (!list.length && !draftIn) { toast(`There’s nothing to clear this ${p.noun}.`); return; }
+    if (!confirm(`Delete all ${list.length} ${list.length === 1 ? 'entry' : 'entries'} for ${p.name}${draftIn ? ', and today’s unsaved log' : ''}?\n\nThis can’t be undone. Make the PDF first if you need a copy.`)) return;
     Store.entries.removeMany(list.map(e => e.id));
-    if (draftInWeek) Store.draft.clear();
-    refreshAll(); toast('Week cleared');
+    if (draftIn) Store.draft.clear();
+    refreshAll(); toast(p.noun === 'month' ? 'Month cleared' : 'Week cleared');
   });
   async function withBusy(button, work) {
     const label = button.textContent; button.disabled = true; button.textContent = 'Making PDF…';
@@ -292,8 +323,7 @@
   const expenseDialog = $('expense-dialog'), expenseForm = $('expense-form');
   TS.EXPENSE_TYPES.forEach(t => expenseForm.elements.type.append(new Option(t.label, t.key)));
   let editingExpense = null, receipt = '';
-  function monthLabel(m) { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
-  function shiftMonth(m, by) { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 + by, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+  const monthLabel = TS.monthLabel, shiftMonth = TS.shiftMonth;
   async function monthItems() { return (await Store.expenses.all()).filter(i => i.date.startsWith(month)); }
   async function renderExpenses() {
     $('month-title').textContent = monthLabel(month);
@@ -379,6 +409,8 @@
     ['name', 'address', 'phone', 'email'].forEach(k => { form.elements['company.' + k].value = settings.company[k]; });
     form.elements.jobLabel.value = settings.jobLabel;
     form.elements.weekEnds.value = String(settings.weekEnds);
+    form.elements.period.value = settings.period;
+    form.elements.weekEnds.closest('.field').hidden = settings.period === 'month';
     form.elements.currency.value = settings.currency;
     form.elements.mileageRate.value = settings.mileageRate;
     form.elements.hourlyRate.value = settings.hourlyRate;
@@ -400,6 +432,7 @@
       company: { ...settings.company, name: f['company.name'].value.trim(), address: f['company.address'].value.trim(), phone: f['company.phone'].value.trim(), email: f['company.email'].value.trim() },
       jobLabel: f.jobLabel.value.trim() || 'Job / reference',
       weekEnds: Number(f.weekEnds.value),
+      period: f.period.value === 'month' ? 'month' : 'week',
       currency: f.currency.value.trim() || '£',
       mileageRate: Math.max(0, Number(f.mileageRate.value) || 0),
       hourlyRate: Math.max(0, Number(f.hourlyRate.value) || 0),
@@ -410,6 +443,7 @@
     Store.settings.set(settings);
     if (weekChanged) weekEnd = TS.weekEnding(today(), settings.weekEnds);
     applySettings();
+    f.weekEnds.closest('.field').hidden = settings.period === 'month';
     $('settings-saved').textContent = 'Saved'; clearTimeout(savedTimer); savedTimer = setTimeout(() => { $('settings-saved').textContent = ''; }, 1500);
   }
   form.addEventListener('input', saveSettings);

@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Timesheet">
-  <link rel="stylesheet" href="app.css?v=3">
+  <link rel="stylesheet" href="app.css?v=4">
 </head>
 <body>
   <header class="app-header">
@@ -55,7 +55,7 @@
       <div class="card">
         <div class="week-nav">
           <button type="button" id="week-prev" class="icon-btn" aria-label="Previous week">‹</button>
-          <div><p class="small">Week ending</p><h2 id="week-title"></h2></div>
+          <div><p class="small" id="week-kicker">Week ending</p><h2 id="week-title"></h2></div>
           <button type="button" id="week-next" class="icon-btn" aria-label="Next week">›</button>
         </div>
         <div class="totals">
@@ -124,6 +124,7 @@
         </div>
         <h2>Timesheet</h2>
         <label class="field"><span>Name for the job column</span><input name="jobLabel" maxlength="40" placeholder="Job / reference"></label>
+        <label class="field"><span>Timesheets by</span><select name="period"><option value="week">Week</option><option value="month">Month</option></select></label>
         <label class="field"><span>Week ends on</span><select name="weekEnds"></select></label>
         <h2>Pay rates</h2>
         <p class="small">Leave at 0 to keep pay off your timesheet. Hourly rate is for time on site (On site → Off site). Travel rate is for Start → On site and Off site → Finish. A day with no on-site times is paid at the hourly rate.</p>
@@ -167,7 +168,7 @@
 
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button type="button" role="tab" id="tab-today" data-view="today" aria-selected="true"><span aria-hidden="true">⏱</span>Today</button>
-    <button type="button" role="tab" id="tab-week" data-view="week" aria-selected="false"><span aria-hidden="true">🗓</span>Week</button>
+    <button type="button" role="tab" id="tab-week" data-view="week" aria-selected="false"><span aria-hidden="true">🗓</span><span class="tab-text" id="tab-week-label">Week</span></button>
     <button type="button" role="tab" id="tab-expenses" data-view="expenses" aria-selected="false"><span aria-hidden="true">🧾</span>Expenses</button>
     <button type="button" role="tab" id="tab-settings" data-view="settings" aria-selected="false"><span aria-hidden="true">⚙</span>Settings</button>
   </nav>
@@ -235,10 +236,10 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="core.js?v=3"></script>
-  <script src="pdf.js?v=3"></script>
-  <script src="store.js?v=3"></script>
-  <script src="weather.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="core.js?v=4"></script>
+  <script src="pdf.js?v=4"></script>
+  <script src="store.js?v=4"></script>
+  <script src="weather.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

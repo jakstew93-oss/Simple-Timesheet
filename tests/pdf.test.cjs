@@ -54,3 +54,11 @@ test('a timesheet with pay rates, a signature and a date still makes a PDF', asy
   const claim = await PDFLib.PDFDocument.load(await TSPdf.expensesPdf(PDFLib, { items: [{ id: 'a', date: '2026-10-02', type: 'overnight', amount: 85 }], settings: signed, title: 'October 2026', signedDate: '2026-10-31' }));
   assert.equal(claim.getPageCount(), 1);
 });
+
+test('a monthly timesheet PDF', async () => {
+  const entries = Array.from({ length: 22 }, (_, i) => ({ id: String(i), date: '2026-10-' + String(i + 1).padStart(2, '0'), job: 'Job ' + i, start: '07:00', finish: '16:00' }));
+  entries.push({ id: 'x', date: '2026-11-02', start: '07:00', finish: '16:00' });
+  const doc = await PDFLib.PDFDocument.load(await TSPdf.timesheetPdf(PDFLib, { entries, settings, month: '2026-10' }));
+  assert.match(doc.getTitle(), /October 2026/);
+  assert.equal(doc.getPageCount(), 2, '22 days and a total run onto a second page');
+});

@@ -124,13 +124,13 @@
     };
   }
 
-  /** One week's timesheet, landscape, as many pages as it needs. With rates set, adds on-site, travel and pay. */
-  async function timesheetPdf(PDFLib, { entries, settings, ending, signedDate }) {
+  /** One week's (ending) or month's (month, YYYY-MM) timesheet, landscape, as many pages as it needs. With rates set, adds on-site, travel and pay. */
+  async function timesheetPdf(PDFLib, { entries, settings, ending, month, signedDate }) {
     const doc = await PDFLib.PDFDocument.create();
-    doc.setTitle(`Timesheet - week ending ${TS.formatDate(ending)}`);
+    doc.setTitle(month ? `Timesheet - ${TS.monthLabel(month)}` : `Timesheet - week ending ${TS.formatDate(ending)}`);
     doc.setAuthor(clean(settings.employee.name || settings.company.name || ''));
     const ctx = await context(PDFLib, settings, doc, signedDate);
-    const list = TS.entriesForWeek(entries, ending);
+    const list = month ? TS.entriesForMonth(entries, month) : TS.entriesForWeek(entries, ending);
     const pay = TS.hasRates(settings);
     const columns = pay ? [
       { label: 'Date', width: 80 }, { label: settings.jobLabel || 'Job', width: 120 },
@@ -144,7 +144,7 @@
     ];
     const payCells = e => pay ? [TS.formatMinutes(TS.workMinutes(e)), TS.formatMinutes(TS.travelMinutes(e)), TS.money(TS.entryPay(e, settings), settings)] : [];
     const rows = list.map(e => ({ cells: [TS.formatDate(e.date, 'day'), e.job, e.start, e.onSite, e.offSite, e.finish, TS.formatMinutes(TS.entryMinutes(e)), ...payCells(e), e.notes] }));
-    if (!rows.length) rows.push({ cells: columns.map((_, i) => i ? '' : 'No entries this week') });
+    if (!rows.length) rows.push({ cells: columns.map((_, i) => i ? '' : 'No entries this ' + (month ? 'month' : 'week')) });
     const total = TS.totalMinutes(list), sums = TS.payTotals(list, settings);
     rows.push({ bold: true, cells: ['Total', '', '', '', '', '', TS.formatMinutes(total),
       ...(pay ? [TS.formatMinutes(sums.work), TS.formatMinutes(sums.travel), TS.money(sums.pay, settings)] : []), TS.decimalHours(total) + ' hours'] });
@@ -154,7 +154,7 @@
       const page = doc.addPage([A4[1], A4[0]]);
       let y = drawHeader(page, ctx, 'TIMESHEET', [
         settings.employee.name ? 'Name: ' + settings.employee.name : '',
-        'Week ending: ' + TS.formatDate(ending, 'long'),
+        month ? 'Month: ' + TS.monthLabel(month) : 'Week ending: ' + TS.formatDate(ending, 'long'),
       ].filter(Boolean));
       y = drawTable(page, ctx, y, columns, chunk);
       if (i !== pages.length - 1) { drawFooter(page, ctx, i + 1, pages.length); return; }
