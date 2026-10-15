@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en-GB" data-theme="forest">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Timesheet</title>
+  <meta name="description" content="Log your working hours and expenses, and export timesheets with your own company details.">
+  <meta name="theme-color" content="#14532d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Timesheet">
+  <link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+  <header class="app-header">
+    <img id="header-logo" alt="" hidden>
+    <div class="header-text">
+      <h1 id="header-company">Timesheet</h1>
+      <p id="header-name"></p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Today -->
+    <section id="view-today" class="view" aria-labelledby="tab-today">
+      <div id="weather" class="card weather" hidden></div>
+
+      <div class="card quick">
+        <div class="quick-head">
+          <h2>Today’s log</h2>
+          <input type="date" id="qs-date" aria-label="Date of this entry">
+        </div>
+        <p class="clock" id="clock" aria-live="off"></p>
+        <button type="button" id="qs-stamp" class="stamp">Start</button>
+        <div class="stages" id="qs-stages"></div>
+        <label class="field"><span id="qs-job-label">Job / reference</span><input id="qs-job" autocomplete="off" maxlength="80"></label>
+        <label class="field"><span>Notes</span><input id="qs-notes" autocomplete="off" maxlength="200"></label>
+        <p class="hours-line" id="qs-hours"></p>
+        <div class="row">
+          <button type="button" id="qs-reset" class="btn ghost">Reset</button>
+          <button type="button" id="qs-save" class="btn primary">Save entry</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Saved today</h2>
+        <ul class="entries" id="today-list"></ul>
+      </div>
+    </section>
+
+    <!-- Week -->
+    <section id="view-week" class="view" aria-labelledby="tab-week" hidden>
+      <div class="card">
+        <div class="week-nav">
+          <button type="button" id="week-prev" class="icon-btn" aria-label="Previous week">‹</button>
+          <div><p class="small">Week ending</p><h2 id="week-title"></h2></div>
+          <button type="button" id="week-next" class="icon-btn" aria-label="Next week">›</button>
+        </div>
+        <div class="totals">
+          <div><p class="small">Total</p><p class="big" id="week-total">0h</p></div>
+          <div><p class="small">Days worked</p><p class="big" id="week-days">0</p></div>
+        </div>
+      </div>
+      <div id="week-list"></div>
+      <div class="card">
+        <button type="button" id="week-add" class="btn ghost wide">Add an entry by hand</button>
+        <div class="row">
+          <button type="button" id="week-pdf" class="btn primary">Timesheet PDF</button>
+          <button type="button" id="week-share" class="btn">Share PDF</button>
+        </div>
+        <button type="button" id="week-csv" class="btn ghost wide">Download spreadsheet (CSV)</button>
+      </div>
+    </section>
+
+    <!-- Expenses -->
+    <section id="view-expenses" class="view" aria-labelledby="tab-expenses" hidden>
+      <div class="card">
+        <div class="week-nav">
+          <button type="button" id="month-prev" class="icon-btn" aria-label="Previous month">‹</button>
+          <div><p class="small">Expenses for</p><h2 id="month-title"></h2></div>
+          <button type="button" id="month-next" class="icon-btn" aria-label="Next month">›</button>
+        </div>
+        <div class="totals"><div><p class="small">Total</p><p class="big" id="month-total">£0.00</p></div><div><p class="small">Items</p><p class="big" id="month-count">0</p></div></div>
+      </div>
+      <div class="card">
+        <ul class="entries" id="expense-list"></ul>
+        <button type="button" id="expense-add" class="btn primary wide">Add an expense</button>
+        <div class="row">
+          <button type="button" id="expense-pdf" class="btn">Expense claim PDF</button>
+          <button type="button" id="expense-share" class="btn">Share PDF</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="view-settings" class="view" aria-labelledby="tab-settings" hidden>
+      <div class="card welcome" id="welcome" hidden>
+        <h2>Welcome</h2>
+        <p>Add your name and your company’s details. They go on every timesheet and expense claim you export. Everything stays on this phone.</p>
+      </div>
+      <form id="settings-form" class="card" autocomplete="on">
+        <h2>You</h2>
+        <label class="field"><span>Your name</span><input name="employee.name" autocomplete="name" maxlength="80"></label>
+        <h2>Company</h2>
+        <label class="field"><span>Company name</span><input name="company.name" autocomplete="organization" maxlength="80"></label>
+        <label class="field"><span>Address</span><input name="company.address" autocomplete="street-address" maxlength="160"></label>
+        <label class="field"><span>Phone</span><input name="company.phone" type="tel" autocomplete="tel" maxlength="40"></label>
+        <label class="field"><span>Email</span><input name="company.email" type="email" autocomplete="email" maxlength="80"></label>
+        <div class="field">
+          <span>Logo</span>
+          <div class="logo-row">
+            <img id="logo-preview" alt="Company logo" hidden>
+            <label class="btn ghost">Choose logo<input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+            <button type="button" id="logo-remove" class="btn ghost" hidden>Remove</button>
+          </div>
+        </div>
+        <h2>Timesheet</h2>
+        <label class="field"><span>Name for the job column</span><input name="jobLabel" maxlength="40" placeholder="Job / reference"></label>
+        <label class="field"><span>Week ends on</span><select name="weekEnds"></select></label>
+        <h2>Expenses</h2>
+        <div class="row">
+          <label class="field"><span>Currency</span><input name="currency" maxlength="3"></label>
+          <label class="field"><span>Mileage rate (per mile)</span><input name="mileageRate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        </div>
+        <h2>Appearance</h2>
+        <label class="field"><span>Theme</span><select name="theme">
+          <option value="forest">Forest</option><option value="paper">Paper</option><option value="midnight">Midnight</option><option value="sand">Sand</option><option value="slate">Slate</option>
+        </select></label>
+        <label class="check"><input type="checkbox" name="weather"> Show the weather on the Today page</label>
+        <p class="saved-note" id="settings-saved" aria-live="polite"></p>
+      </form>
+
+      <div class="card">
+        <h2>Set up your team</h2>
+        <p class="small">Send this link to your team. Opening it fills in the company details for them (not the logo, which they can add themselves).</p>
+        <button type="button" id="setup-share" class="btn wide">Share setup link</button>
+      </div>
+
+      <div class="card">
+        <h2>Backup</h2>
+        <p class="small">Saves all your entries, expenses with receipt photos and settings in one file. Use it to keep a copy or move to a new phone.</p>
+        <div class="row">
+          <button type="button" id="backup-save" class="btn">Download backup</button>
+          <button type="button" id="backup-load" class="btn ghost">Restore</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="tab-today" data-view="today" aria-selected="true"><span aria-hidden="true">⏱</span>Today</button>
+    <button type="button" role="tab" id="tab-week" data-view="week" aria-selected="false"><span aria-hidden="true">🗓</span>Week</button>
+    <button type="button" role="tab" id="tab-expenses" data-view="expenses" aria-selected="false"><span aria-hidden="true">🧾</span>Expenses</button>
+    <button type="button" role="tab" id="tab-settings" data-view="settings" aria-selected="false"><span aria-hidden="true">⚙</span>Settings</button>
+  </nav>
+
+  <!-- Edit an entry -->
+  <dialog id="entry-dialog" aria-labelledby="entry-title">
+    <form method="dialog" id="entry-form">
+      <h2 id="entry-title">Entry</h2>
+      <label class="field"><span>Date</span><input type="date" name="date" required></label>
+      <label class="field"><span class="job-label">Job / reference</span><input name="job" maxlength="80"></label>
+      <div class="grid2">
+        <label class="field"><span>Start</span><input type="time" name="start"></label>
+        <label class="field"><span>On site</span><input type="time" name="onSite"></label>
+        <label class="field"><span>Off site</span><input type="time" name="offSite"></label>
+        <label class="field"><span>Finish</span><input type="time" name="finish"></label>
+      </div>
+      <label class="field"><span>Notes</span><input name="notes" maxlength="200"></label>
+      <p class="error" id="entry-error" role="alert"></p>
+      <div class="row">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Edit an expense -->
+  <dialog id="expense-dialog" aria-labelledby="expense-title">
+    <form method="dialog" id="expense-form">
+      <h2 id="expense-title">Expense</h2>
+      <div class="grid2">
+        <label class="field"><span>Date</span><input type="date" name="date" required></label>
+        <label class="field"><span>Type</span><select name="type"></select></label>
+      </div>
+      <label class="field"><span>Details</span><input name="description" maxlength="120" placeholder="e.g. Parking at the hospital job"></label>
+      <label class="field amount-field"><span>Amount</span><input name="amount" type="number" step="0.01" min="0" inputmode="decimal"></label>
+      <label class="field miles-field"><span>Miles</span><input name="miles" type="number" step="0.1" min="0" inputmode="decimal"></label>
+      <div class="field">
+        <span>Receipt</span>
+        <div class="logo-row">
+          <img id="receipt-preview" alt="Receipt photo" hidden>
+          <label class="btn ghost">Take or choose photo<input type="file" id="receipt-file" accept="image/*" hidden></label>
+          <button type="button" id="receipt-remove" class="btn ghost" hidden>Remove</button>
+        </div>
+      </div>
+      <p class="error" id="expense-error" role="alert"></p>
+      <div class="row">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- PDF preview -->
+  <dialog id="pdf-dialog" class="pdf-dialog" aria-labelledby="pdf-title">
+    <div class="pdf-head"><h2 id="pdf-title">PDF</h2><button type="button" class="btn ghost" data-close>Close</button></div>
+    <iframe id="pdf-frame" title="PDF preview"></iframe>
+    <div class="row"><a id="pdf-download" class="btn primary" download>Download</a><button type="button" id="pdf-share" class="btn">Share</button></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="core.js?v=1"></script>
+  <script src="pdf.js?v=1"></script>
+  <script src="store.js?v=1"></script>
+  <script src="weather.js?v=1"></script>
+  <script src="app.js?v=1"></script>
+</body>
+</html>
