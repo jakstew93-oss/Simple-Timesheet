@@ -16,6 +16,7 @@ No account, no sign-up, no adverts. Everything you enter stays on your phone, an
 - **Weather.** Today's forecast on the main screen, with a heads-up for rain, ice or wind.
 - **Themes.** Forest, Paper, Midnight, Sand and Slate.
 - **Team setup link.** Fill in the company details once and send everyone a link that sets up their app for them.
+- **Android app, widget and Galaxy Watch.** An optional Android app adds a one-tap home-screen widget and a watch tile. Taps from the watch, widget and phone all go into Today's log, and each carries on from the other. See [android/README.md](android/README.md).
 - **Backup.** Save everything to one file and restore it on a new phone.
 
 ## Getting started
@@ -55,6 +56,8 @@ Plain HTML, CSS and JavaScript with no build step. PDFs are made in the browser 
 | `store.js` | Saving to the phone: localStorage, plus IndexedDB for expenses |
 | `weather.js` | The weather card |
 | `app.js` | Screens and buttons |
+| `native-bridge.js` | Links the page to the Android app (watch and widget times, downloads, sharing). Does nothing in a normal browser. |
+| `android/` | The Android phone app, widget and Wear OS watch app |
 | `sw.js` | Offline support. Bump `VERSION` (and the `?v=` numbers in `index.html`) when you change a file. |
 
 Run the tests with Node 22 or newer:

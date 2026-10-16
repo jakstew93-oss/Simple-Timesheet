@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="match_parent" android:layout_height="match_parent"
+ android:orientation="vertical" android:padding="10dp" android:background="@drawable/widget_bg">
+ <Button android:id="@+id/quickLog" android:layout_width="match_parent" android:layout_height="0dp"
+  android:layout_weight="1" android:minHeight="48dp" android:text="START WORK"
+  android:textStyle="bold" android:textSize="15sp" android:textColor="#092918" android:backgroundTint="#70E39D"/>
+ <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+  android:paddingTop="4dp" android:gravity="center" android:text="Tap to save the current time"
+  android:textColor="#EDF5EF" android:textSize="11sp" android:maxLines="2"/>
+</LinearLayout>

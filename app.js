@@ -128,9 +128,12 @@
   $('qs-save').addEventListener('click', () => {
     const d = draft();
     const entry = { id: uid(), date: d.date, job: (d.job || '').trim(), start: d.start || '', onSite: d.onSite || '', offSite: d.offSite || '', finish: d.finish || '', notes: (d.notes || '').trim() };
+    // Times from the watch or widget (Android app) keep the set's id, so it isn't brought in again.
+    if (d._capture && d._capture.id) entry.captureId = d._capture.id;
     const problems = TS.validate(entry);
     if (problems.length) { toast(problems[0]); return; }
     Store.entries.save(entry); Store.draft.clear(); renderToday();
+    document.dispatchEvent(new Event('st-entry-saved'));
     toast('Saved · ' + TS.formatMinutes(TS.entryMinutes(entry)));
   });
   function tick() { $('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
@@ -312,7 +315,7 @@
   entryForm.addEventListener('submit', e => {
     e.preventDefault();
     const f = entryForm.elements;
-    const entry = { id: editing.id || uid(), date: f.date.value, job: f.job.value.trim(), start: f.start.value, onSite: f.onSite.value, offSite: f.offSite.value, finish: f.finish.value, notes: f.notes.value.trim() };
+    const entry = { ...(editing.captureId ? { captureId: editing.captureId } : {}), id: editing.id || uid(), date: f.date.value, job: f.job.value.trim(), start: f.start.value, onSite: f.onSite.value, offSite: f.offSite.value, finish: f.finish.value, notes: f.notes.value.trim() };
     const problems = TS.validate(entry);
     if (problems.length) { $('entry-error').textContent = problems.join(' '); return; }
     Store.entries.save(entry); entryDialog.close(); refreshAll(); toast('Entry saved');
@@ -548,6 +551,8 @@
   if (!settings.company.name && !settings.employee.name) first = 'settings';
   showView(first);
   acceptSetupLink();
+  // For native-bridge.js in the Android app: tell the person about watch times and redraw Today's log.
+  window.STApp = { toast, refresh: refreshAll };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); renderToday(); Weather.refresh(); } });
   setTimeout(() => loadPdfLib().catch(() => {}), 1500); // ready before the first tap, so Share still counts as a tap
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
