@@ -27,7 +27,8 @@ jobs:
           gradle-version: '8.9'
       - name: Use the signing key
         env:
-          KEYSTORE_B64: ${{ secrets.ST_SIGNING_KEYSTORE }}
+          # ST_SIGNING_KEYSTORE is the name in android/README.md; MDS_SIGNING_KEYSTORE also works if the key was saved under that name.
+          KEYSTORE_B64: ${{ secrets.ST_SIGNING_KEYSTORE || secrets.MDS_SIGNING_KEYSTORE }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/st.keystore"
