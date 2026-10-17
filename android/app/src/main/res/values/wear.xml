@@ -1,0 +1,4 @@
+<resources>
+ <!-- Lets the watch app check that this phone has Simple Timesheet (see SyncLog). -->
+ <string-array name="android_wear_capabilities"><item>simple_timesheet_phone</item></string-array>
+</resources>

@@ -72,7 +72,22 @@
     return null;
   }
 
-  const api = { normalise, pickRun, mergeDraft, draftTimes, dayMessage, TIME_FIELDS };
+  // Settings → Check watch connection: the app's report (STNative.watchStatus) in plain English.
+  function describeWatch(s) {
+    const when = ms => ms ? new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'never';
+    if (s.error) return 'The phone can’t reach the watch system: ' + s.error + '\nCheck the Pixel Watch or Galaxy Wearable app is installed and the watch is paired.';
+    const lines = [];
+    if (!s.connected || !s.connected.length) lines.push('No watch connected. Check Bluetooth is on and the watch is paired in the Pixel Watch or Galaxy Wearable app.');
+    else {
+      lines.push('Watch connected: ' + s.connected.join(', ') + ' ✓');
+      lines.push(s.withApp && s.withApp.length ? 'Timesheet Log found on the watch ✓' : 'Timesheet Log not found on the watch. Install simple-timesheet-watch.apk from the same release as this app.');
+    }
+    lines.push('Last set received from the watch: ' + when(s.fromWatch));
+    lines.push('Last sent to the watch: ' + (s.toWatchError ? 'failed: ' + s.toWatchError : when(s.toWatch)));
+    return lines.join('\n');
+  }
+
+  const api = { normalise, pickRun, mergeDraft, draftTimes, dayMessage, describeWatch, TIME_FIELDS };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.STBridgeLogic = api;
 
@@ -178,7 +193,16 @@
     p.textContent = 'Version ' + ((native.appVersion && native.appVersion()) || '?') + '. Watch and widget taps come into Today’s log by themselves. Updates are checked each time the app opens.';
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn wide'; b.textContent = 'Check for updates';
     b.addEventListener('click', () => native.checkForUpdates());
-    card.append(h, p, b); page.append(card);
+    const w = document.createElement('button'); w.type = 'button'; w.className = 'btn wide'; w.textContent = 'Check watch connection';
+    const out = document.createElement('p'); out.className = 'small'; out.style.whiteSpace = 'pre-line'; out.style.marginTop = '10px';
+    out.setAttribute('aria-live', 'polite');
+    w.addEventListener('click', () => {
+      if (!native.watchStatus) { out.textContent = 'Update the app first: tap Check for updates.'; return; }
+      out.textContent = 'Checking…';
+      // The check can take a few seconds; let "Checking…" show first.
+      setTimeout(() => { try { out.textContent = describeWatch(JSON.parse(native.watchStatus())); } catch (e) { out.textContent = 'Couldn’t check: ' + e.message; } }, 50);
+    });
+    card.append(h, p, b, w, out); page.append(card);
   }
   addAppCard(); addEventListener('load', addAppCard);
   root.STBridge = { pull: check };

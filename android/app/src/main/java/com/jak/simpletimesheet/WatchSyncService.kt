@@ -22,6 +22,7 @@ class WatchSyncService : WearableListenerService() {
             val json = DataMapItem.fromDataItem(event.dataItem).dataMap.getString(KEY_RUN) ?: continue
             val run = try { CaptureStore.fromJson(JSONObject(json)) } catch (_: Exception) { continue }
             if (run.source != CaptureRun.WATCH) continue
+            SyncLog.ok(this, "fromWatch")
             val before = try { CaptureStore.upsert(this, run) } catch (_: Exception) { continue }
             if (run.complete && before?.complete != true) notifyFinished(run)
         }

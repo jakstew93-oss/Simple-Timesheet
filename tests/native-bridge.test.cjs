@@ -84,3 +84,12 @@ test('the bridge is loaded by the page and cached offline', () => {
   const v = html.match(/native-bridge\.js\?v=\d+/)[0];
   assert.ok(sw.includes(v)); assert.ok(html.indexOf('app.js?') < html.indexOf('native-bridge.js?'));
 });
+test('the watch connection check explains what is wrong in plain English', () => {
+  const { describeWatch } = require('../native-bridge.js');
+  assert.match(describeWatch({ connected: [], withApp: [], fromWatch: 0, toWatch: 0 }), /No watch connected/);
+  const noApp = describeWatch({ connected: ['Pixel Watch'], withApp: [], fromWatch: 0, toWatch: 0 });
+  assert.match(noApp, /Watch connected: Pixel Watch/); assert.match(noApp, /Timesheet Log not found/); assert.match(noApp, /from the watch: never/);
+  const ok = describeWatch({ connected: ['Pixel Watch'], withApp: ['Pixel Watch'], fromWatch: Date.parse('2026-10-17T08:30:00Z'), toWatch: 0, toWatchError: '17: API unavailable' });
+  assert.match(ok, /found on the watch ✓/); assert.match(ok, /failed: 17: API unavailable/);
+  assert.match(describeWatch({ error: 'Wearable.API is not available' }), /can’t reach the watch system/);
+});

@@ -9,6 +9,7 @@ import com.google.android.gms.wearable.Wearable
 import com.jak.simpletimesheet.CaptureRun
 import com.jak.simpletimesheet.CaptureStore
 import com.jak.simpletimesheet.CaptureTime
+import com.jak.simpletimesheet.SyncLog
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -44,6 +45,8 @@ object WatchLog {
             dataMap.putLong("sentAt", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
+            .addOnSuccessListener { SyncLog.ok(context, "toPhone") }
+            .addOnFailureListener { SyncLog.failed(context, "toPhone", it) }
     }
 
     @Suppress("DEPRECATION")

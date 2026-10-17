@@ -12,13 +12,18 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import com.google.android.gms.wearable.CapabilityClient
+import com.google.android.gms.wearable.Wearable
+import com.jak.simpletimesheet.SyncLog
 
 /** One big button: Start → On site → Off site → Finish for today. */
 class WatchActivity : Activity() {
     private lateinit var date: TextView
     private lateinit var button: Button
     private lateinit var status: TextView
+    private lateinit var link: TextView
     private var lastTap = 0L
     // Why the app closed last time, shown until the next tap.
     private var notice: String? = null
@@ -40,13 +45,20 @@ class WatchActivity : Activity() {
         status = TextView(this).apply {
             setTextColor(Color.rgb(237, 245, 239)); textSize = 12f; gravity = Gravity.CENTER; maxLines = 4
         }
+        link = TextView(this).apply {
+            setTextColor(Color.rgb(160, 175, 168)); textSize = 10f; gravity = Gravity.CENTER; maxLines = 3
+        }
         val size = (width * 0.48).toInt()
         column.addView(date)
         column.addView(button, LinearLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = width / 40; bottomMargin = width / 40 })
         column.addView(status, LinearLayout.LayoutParams((width * 0.72).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        setContentView(FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-            addView(column, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
+        column.addView(link, LinearLayout.LayoutParams((width * 0.66).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = width / 60; bottomMargin = width / 12 })
+        // Scrolls on small screens so the connection line below the button can always be read.
+        setContentView(ScrollView(this).apply {
+            setBackgroundColor(Color.BLACK); isFillViewport = true
+            addView(FrameLayout(this@WatchActivity).apply {
+                addView(column, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            })
         })
     }
 
@@ -55,6 +67,24 @@ class WatchActivity : Activity() {
         // If the app closed unexpectedly last time, say why, so it can be reported and fixed.
         CrashNote.take(this)?.let { notice = "Closed last time:\n$it" }
         refresh.run()
+        checkLink()
+    }
+
+    /** Shows whether the phone, and the Simple Timesheet app on it, can be reached, and why the last send failed. */
+    private fun checkLink() {
+        link.text = "Checking phone…"
+        Wearable.getNodeClient(this).connectedNodes.addOnCompleteListener { nodes ->
+            if (!nodes.isSuccessful) { link.text = "Can’t reach phone: " + (nodes.exception?.message ?: "unknown").take(80); return@addOnCompleteListener }
+            if (nodes.result.isNullOrEmpty()) { link.text = "Phone not connected"; return@addOnCompleteListener }
+            Wearable.getCapabilityClient(this).getCapability(SyncLog.PHONE_CAPABILITY, CapabilityClient.FILTER_ALL).addOnCompleteListener { app ->
+                val error = SyncLog.lastError(this, "toPhone")
+                link.text = when {
+                    !app.isSuccessful || app.result.nodes.isEmpty() -> "Phone found, but Simple Timesheet isn’t on it (or needs updating)"
+                    error != null -> "Last send failed: $error"
+                    else -> "Linked to phone ✓"
+                }
+            }
+        }
     }
     override fun onPause() { handler.removeCallbacks(refresh); super.onPause() }
 
@@ -67,6 +97,7 @@ class WatchActivity : Activity() {
         notice = null
         try { WatchLog.tap(this, tappedAt) } catch (_: Exception) { status.text = "Time not saved. Try again." ; return }
         render()
+        handler.postDelayed({ checkLink() }, 2000)
     }
 
     private fun render() {
