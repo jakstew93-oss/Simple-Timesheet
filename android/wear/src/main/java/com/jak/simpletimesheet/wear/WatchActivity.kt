@@ -20,11 +20,14 @@ class WatchActivity : Activity() {
     private lateinit var button: Button
     private lateinit var status: TextView
     private var lastTap = 0L
+    // Why the app closed last time, shown until the next tap.
+    private var notice: String? = null
     private val handler = Handler(Looper.getMainLooper())
     // Picks up times logged in the phone app while this screen is open.
     private val refresh = object : Runnable { override fun run() { render(); handler.postDelayed(this, 3000) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashNote.install(this)
         super.onCreate(savedInstanceState)
         val width = resources.displayMetrics.widthPixels
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
@@ -47,7 +50,12 @@ class WatchActivity : Activity() {
         })
     }
 
-    override fun onResume() { super.onResume(); refresh.run() }
+    override fun onResume() {
+        super.onResume()
+        // If the app closed unexpectedly last time, say why, so it can be reported and fixed.
+        CrashNote.take(this)?.let { notice = "Closed last time:\n$it" }
+        refresh.run()
+    }
     override fun onPause() { handler.removeCallbacks(refresh); super.onPause() }
 
     private fun record() {
@@ -56,6 +64,7 @@ class WatchActivity : Activity() {
         // Ignore a second tap straight after the first so one press can't log two stages.
         if (SystemClock.elapsedRealtime() - lastTap < 1500) return
         lastTap = SystemClock.elapsedRealtime()
+        notice = null
         try { WatchLog.tap(this, tappedAt) } catch (_: Exception) { status.text = "Time not saved. Try again." ; return }
         render()
     }
@@ -65,6 +74,6 @@ class WatchActivity : Activity() {
         val runs = WatchLog.runs(this)
         date.text = WatchLog.todayLabel()
         button.text = WatchLog.BUTTON_LABELS[WatchLog.nextIndex(runs, now)]
-        status.text = WatchLog.status(runs, now)
+        status.text = notice ?: WatchLog.status(runs, now)
     }
 }

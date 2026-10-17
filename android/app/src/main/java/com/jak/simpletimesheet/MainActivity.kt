@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.Gravity
 import android.view.WindowInsets
 import android.webkit.GeolocationPermissions
 import android.webkit.URLUtil
@@ -23,6 +24,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
@@ -45,7 +47,16 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        web = WebView(this).apply { setBackgroundColor(Color.BLACK) }
+        // The phone app can be installed on a watch by mistake (same app ID), where there's no WebView and it would close at once.
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            showMessage("This is the phone app.\n\nOn the watch, install simple-timesheet-watch.apk instead. It shows as Timesheet Log.")
+            return
+        }
+        web = try { WebView(this) } catch (_: Exception) {
+            showMessage("Simple Timesheet needs Android System WebView. Update it from the Play Store, then open the app again.")
+            return
+        }
+        web.setBackgroundColor(Color.BLACK)
         // Keep the page clear of the status bar, navigation bar and keyboard.
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK); addView(web) }
         frame.setOnApplyWindowInsetsListener { view, insets ->
@@ -101,18 +112,23 @@ class MainActivity : Activity() {
     private fun padForOlderAndroid(view: android.view.View, insets: WindowInsets) =
         view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
 
-    override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
+    private fun showMessage(text: String) = setContentView(TextView(this).apply {
+        this.text = text; setTextColor(Color.WHITE); setBackgroundColor(Color.BLACK); gravity = Gravity.CENTER; textSize = 15f
+        val pad = (24 * resources.displayMetrics.density).toInt(); setPadding(pad, pad, pad, pad)
+    })
+
+    override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); if (::web.isInitialized) web.saveState(outState) }
     override fun onResume() {
-        super.onResume(); web.onResume()
+        super.onResume(); if (!::web.isInitialized) return; web.onResume()
         // Bring in any watch or widget taps made while the app was in the background.
         web.evaluateJavascript("window.STBridge&&STBridge.pull()", null)
     }
-    override fun onPause() { web.onPause(); super.onPause() }
-    override fun onDestroy() { web.destroy(); super.onDestroy() }
+    override fun onPause() { if (::web.isInitialized) web.onPause(); super.onPause() }
+    override fun onDestroy() { if (::web.isInitialized) web.destroy(); super.onDestroy() }
 
     @Deprecated("Back gesture still goes back through the timesheet's pages first.")
     @Suppress("DEPRECATION")
-    override fun onBackPressed() { if (web.canGoBack()) web.goBack() else super.onBackPressed() }
+    override fun onBackPressed() { if (::web.isInitialized && web.canGoBack()) web.goBack() else super.onBackPressed() }
 
     // ---------- Photos and files for the page ----------
     private fun chooseFile(callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
